@@ -1,62 +1,74 @@
-import { todayISO } from '@/lib/date'
-import { openDB } from 'idb'
+import {
+  attemptDB,
+  courseDB,
+  deadlineDB,
+  mistakeDB,
+  noteDB,
+  questionDB,
+  quizDB,
+  semesterDB,
+  studySessionDB,
+} from '@/lib/db'
 
-const DB_NAME = 'aplus-monster'
-
-const EXPORT_STORES = {
-  semesters: 'semesters',
-  courses: 'courses',
-  topics: 'topics',
-  deadlines: 'deadlines',
-  studySessions: 'study_sessions',
-  notes: 'notes',
-  quizzes: 'quizzes',
-  quizQuestions: 'quiz_questions',
-  quizAttempts: 'quiz_attempts',
-  mistakes: 'mistakes',
-} as const
-
-interface LocalDemoExport {
-  format: 'aplus-monster-local-demo'
-  schemaVersion: 1
+export interface ExportData {
   exportedAt: string
-  data: Record<keyof typeof EXPORT_STORES, unknown[]>
+  version: string
+  semesters: unknown[]
+  courses: unknown[]
+  deadlines: unknown[]
+  notes: unknown[]
+  quizzes: unknown[]
+  quiz_questions: unknown[]
+  quiz_attempts: unknown[]
+  mistakes: unknown[]
+  study_sessions: unknown[]
 }
 
-async function exportLocalDemoData(): Promise<LocalDemoExport> {
-  const db = await openDB(DB_NAME)
-  try {
-    const entries = await Promise.all(
-      Object.entries(EXPORT_STORES).map(async ([exportKey, storeName]) => {
-        const records = db.objectStoreNames.contains(storeName)
-          ? await db.getAll(storeName)
-          : []
-        return [exportKey, records] as const
-      }),
-    )
+export async function exportAllData(): Promise<ExportData> {
+  const [
+    semesters,
+    courses,
+    deadlines,
+    notes,
+    quizzes,
+    questions,
+    attempts,
+    mistakes,
+    sessions,
+  ] = await Promise.all([
+    semesterDB.getAll(),
+    courseDB.getAll(),
+    deadlineDB.getAll(),
+    noteDB.getAll(),
+    quizDB.getAll(),
+    questionDB.getAll(),
+    attemptDB.getAll(),
+    mistakeDB.getAll(),
+    studySessionDB.getAll(),
+  ])
 
-    return {
-      format: 'aplus-monster-local-demo',
-      schemaVersion: 1,
-      exportedAt: new Date().toISOString(),
-      data: Object.fromEntries(entries) as LocalDemoExport['data'],
-    }
-  } finally {
-    db.close()
+  return {
+    exportedAt: new Date().toISOString(),
+    version: '0.5.0',
+    semesters,
+    courses,
+    deadlines,
+    notes,
+    quizzes,
+    quiz_questions: questions,
+    quiz_attempts: attempts,
+    mistakes,
+    study_sessions: sessions,
   }
 }
 
-export async function downloadLocalDemoData() {
-  const snapshot = await exportLocalDemoData()
-  const json = JSON.stringify(snapshot, null, 2)
-  const blob = new Blob([json], { type: 'application/json' })
+export function downloadJSON(data: ExportData): void {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-
-  anchor.href = url
-  anchor.download = `aplus-monster-backup-${todayISO()}.json`
-  document.body.appendChild(anchor)
-  anchor.click()
-  anchor.remove()
+  const a = document.createElement('a')
+  const date = new Date().toISOString().slice(0, 10)
+  a.href = url
+  a.download = `aplus-monster-export-${date}.json`
+  a.click()
   URL.revokeObjectURL(url)
 }

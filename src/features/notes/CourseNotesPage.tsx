@@ -2,13 +2,17 @@ import { type ReactNode, useCallback, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
+import { Dialog } from '@/components/ui/Dialog'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Input, Textarea } from '@/components/ui/Input'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { MochiAvatar } from '@/components/mascot/MochiAvatar'
 import { useCourse } from '@/features/courses/hooks/useCourses'
 import { useCreateNote, useDeleteNote, useNotesByCourse, useUpdateNote } from './hooks/useNotes'
+import { summarizeNotes, AINotConfiguredError } from '@/lib/aiGateway'
+import { isSupabaseConfigured } from '@/lib/supabase'
 import type { Note } from '@/types'
 
 // ─── Simple Markdown renderer ─────────────────────────────────────────────────
@@ -90,19 +94,21 @@ function parseTags(raw: string): string[] {
 
 interface NoteEditorProps {
   courseId: string
+  courseTitle: string
   note: Note | null  // null = create new
   onSaved: (note: Note) => void
   onDeleted: () => void
   onBack?: () => void  // mobile only
 }
 
-function NoteEditor({ courseId, note, onSaved, onDeleted, onBack }: NoteEditorProps) {
+function NoteEditor({ courseId, courseTitle, note, onSaved, onDeleted, onBack }: NoteEditorProps) {
   const [tab, setTab] = useState<'edit' | 'preview'>('edit')
   const [title, setTitle] = useState(note?.title ?? '')
   const [bodyMd, setBodyMd] = useState(note?.bodyMd ?? '')
   const [tagsRaw, setTagsRaw] = useState(note?.tags.join(', ') ?? '')
   const [titleError, setTitleError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [aiSummaryOpen, setAiSummaryOpen] = useState(false)
 
   const createNote = useCreateNote()
   const updateNote = useUpdateNote()
@@ -206,8 +212,17 @@ function NoteEditor({ courseId, note, onSaved, onDeleted, onBack }: NoteEditorPr
             🗑 刪除
           </Button>
         )}
+        {isSupabaseConfigured && bodyMd.trim().length > 20 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setAiSummaryOpen(true)}
+            aria-label="AI 摘要"
+          >
+            ✨ AI 整理
+          </Button>
+        )}
       </div>
-
       {/* Body */}
       <div className="flex-1 overflow-y-auto p-4">
         {tab === 'edit' ? (
@@ -319,6 +334,19 @@ function NoteEditor({ courseId, note, onSaved, onDeleted, onBack }: NoteEditorPr
           </div>
         </div>
       )}
+
+      {/* AI Summary Dialog */}
+      <AISummaryDialog
+        open={aiSummaryOpen}
+        onClose={() => setAiSummaryOpen(false)}
+        courseId={courseId}
+        courseTitle={courseTitle}
+        sourceBodyMd={bodyMd}
+        onApply={(summaryMd) => {
+          setBodyMd((prev) => prev + '\n\n---\n\n## ✨ AI 摘要\n\n' + summaryMd)
+          setAiSummaryOpen(false)
+        }}
+      />
     </div>
   )
 }
@@ -494,6 +522,7 @@ export function CourseNotesPage() {
             <NoteEditor
               key={isCreating ? 'new-note' : editorNote?.id}
               courseId={courseId}
+              courseTitle={courseQuery.data.title}
               note={editorNote}
               onSaved={handleSaved}
               onDeleted={handleDeleted}
@@ -511,5 +540,105 @@ export function CourseNotesPage() {
 
       </div>
     </div>
+  )
+}
+
+// ─── AI Summary Dialog ────────────────────────────────────────────────────────
+
+interface AISummaryDialogProps {
+  open: boolean
+  onClose: () => void
+  courseId: string
+  courseTitle: string
+  sourceBodyMd: string
+  onApply: (summaryMd: string) => void
+}
+
+function AISummaryDialog({ open, onClose, courseTitle, sourceBodyMd, onApply }: AISummaryDialogProps) {
+  const [result, setResult] = useState<{ title: string; bodyMd: string; keyPoints: string[] } | null>(null)
+  const [step, setStep] = useState<'idle' | 'loading' | 'review' | 'done'>('idle')
+  const [aiError, setAiError] = useState('')
+
+  function handleClose() {
+    setResult(null)
+    setStep('idle')
+    setAiError('')
+    onClose()
+  }
+
+  async function handleGenerate() {
+    setAiError('')
+    setStep('loading')
+    try {
+      const res = await summarizeNotes({ courseTitle, noteContent: sourceBodyMd })
+      setResult(res.draft)
+      setStep('review')
+    } catch (err) {
+      setAiError(
+        err instanceof AINotConfiguredError
+          ? 'AI 功能需要設定 Supabase 和 NVIDIA API。'
+          : err instanceof Error ? err.message : 'AI 服務暫時無法使用'
+      )
+      setStep('idle')
+    }
+  }
+
+  return (
+    <Dialog open={open} onClose={handleClose} title="✨ AI 整理筆記">
+      {step === 'idle' && (
+        <div className="space-y-4">
+          <p className="text-sm text-[var(--muted)]">
+            AI 會根據你的筆記內容整理出重點摘要。摘要標記為「AI 建議」，確認後才會加入筆記。
+          </p>
+          <div className="bg-[var(--border)] rounded-[var(--radius-control)] p-3 text-sm text-[var(--muted)]">
+            <p className="font-medium text-[var(--text)] mb-1">筆記內容預覽（前 200 字）</p>
+            <p className="line-clamp-4">{sourceBodyMd.slice(0, 200)}</p>
+          </div>
+          {aiError && <p role="alert" className="text-sm text-[var(--danger)]">{aiError}</p>}
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={handleClose} fullWidth>取消</Button>
+            <Button fullWidth onClick={() => void handleGenerate()}>開始整理</Button>
+          </div>
+        </div>
+      )}
+      {step === 'loading' && (
+        <div className="flex flex-col items-center gap-4 py-8">
+          <MochiAvatar mood="thinking" size="md" />
+          <p className="text-sm text-[var(--muted)]">Mochi 正在整理中…</p>
+        </div>
+      )}
+      {step === 'review' && result && (
+        <div className="space-y-4">
+          <div className="border border-[var(--border)] rounded-[var(--radius-control)] p-4 max-h-64 overflow-y-auto">
+            <p className="font-semibold text-[var(--text)] mb-2">{result.title}</p>
+            <div className="text-sm text-[var(--muted)] whitespace-pre-wrap">{result.bodyMd}</div>
+            {result.keyPoints.length > 0 && (
+              <div className="mt-3">
+                <p className="text-xs font-semibold text-[var(--text)] mb-1">重點：</p>
+                <ul className="list-disc pl-4 space-y-0.5 text-xs text-[var(--muted)]">
+                  {result.keyPoints.map((p, i) => <li key={i}>{p}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
+          <div className="bg-[var(--yellow)] rounded-[var(--radius-control)] p-2 text-xs text-[#7A6000]">
+            ✨ AI 建議 — 請確認內容正確後再套用
+          </div>
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={() => setStep('idle')} fullWidth>重新整理</Button>
+            <Button fullWidth onClick={() => { onApply(result.bodyMd); setStep('done') }}>
+              ✓ 加入筆記
+            </Button>
+          </div>
+        </div>
+      )}
+      {step === 'done' && (
+        <div className="text-center space-y-4">
+          <MochiAvatar mood="celebrating" size="lg" className="mx-auto" />
+          <p className="font-semibold text-[var(--text)]">摘要已加入筆記！</p>
+          <Button fullWidth onClick={handleClose}>完成</Button>
+        </div>
+      )}
+    </Dialog>
   )
 }

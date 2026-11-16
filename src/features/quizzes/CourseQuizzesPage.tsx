@@ -7,6 +7,7 @@ import { ErrorState } from '@/components/ui/ErrorState'
 import { Input, Select, Textarea } from '@/components/ui/Input'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { MochiAvatar } from '@/components/mascot/MochiAvatar'
 import { useCourse } from '@/features/courses/hooks/useCourses'
 import { useAttemptsByQuiz } from '@/features/quizzes/hooks/useAttempts'
 import {
@@ -16,6 +17,8 @@ import {
   useQuizzesByCourse,
 } from '@/features/quizzes/hooks/useQuizzes'
 import { cn } from '@/lib/cn'
+import { isSupabaseConfigured } from '@/lib/supabase'
+import { generateQuiz, AINotConfiguredError, type QuizDraft } from '@/lib/aiGateway'
 import { ROUTES } from '@/lib/routes'
 import type { Quiz, QuizQuestion, QuestionType } from '@/types'
 import { useState } from 'react'
@@ -506,6 +509,7 @@ function CreateQuizDialog({ courseId, open, onClose }: CreateQuizDialogProps) {
 export function CourseQuizzesPage() {
   const { courseId = '' } = useParams()
   const [createOpen, setCreateOpen] = useState(false)
+  const [aiOpen, setAiOpen] = useState(false)
 
   const courseQuery = useCourse(courseId)
   const course = courseQuery.data
@@ -527,9 +531,16 @@ export function CourseQuizzesPage() {
         title="測驗庫"
         description={course ? `${course.title} 的測驗` : undefined}
         actions={
-          <Button variant="primary" size="sm" onClick={() => setCreateOpen(true)}>
-            ＋ 新增測驗
-          </Button>
+          <div className="flex gap-2">
+            {isSupabaseConfigured && (
+              <Button variant="secondary" size="sm" onClick={() => setAiOpen(true)}>
+                ✨ AI 出題
+              </Button>
+            )}
+            <Button variant="primary" size="sm" onClick={() => setCreateOpen(true)}>
+              ＋ 新增測驗
+            </Button>
+          </div>
         }
       />
 
@@ -569,6 +580,195 @@ export function CourseQuizzesPage() {
         open={createOpen}
         onClose={() => setCreateOpen(false)}
       />
+
+      <AIQuizDialog
+        courseId={courseId}
+        courseTitle={course?.title ?? ''}
+        open={aiOpen}
+        onClose={() => setAiOpen(false)}
+      />
     </div>
+  )
+}
+
+// ─── AI Quiz Dialog ───────────────────────────────────────────────────────────
+
+interface AIQuizDialogProps {
+  courseId: string
+  courseTitle: string
+  open: boolean
+  onClose: () => void
+}
+
+function AIQuizDialog({ courseId, courseTitle, open, onClose }: AIQuizDialogProps) {
+  const [topics, setTopics] = useState('')
+  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium')
+  const [questionCount, setQuestionCount] = useState('5')
+  const [noteContent, setNoteContent] = useState('')
+  const [draft, setDraft] = useState<QuizDraft | null>(null)
+  const [step, setStep] = useState<'config' | 'review' | 'done'>('config')
+  const [aiError, setAiError] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const createQuiz = useCreateQuiz()
+
+  function handleClose() {
+    setDraft(null)
+    setStep('config')
+    setAiError('')
+    setTopics('')
+    setNoteContent('')
+    onClose()
+  }
+
+  async function handleGenerate() {
+    setAiError('')
+    setGenerating(true)
+    try {
+      const result = await generateQuiz({
+        courseId,
+        courseTitle,
+        topics: topics.split(',').map((t) => t.trim()).filter(Boolean),
+        difficulty,
+        questionCount: Math.min(Math.max(parseInt(questionCount) || 5, 1), 20),
+        noteContent: noteContent || undefined,
+      })
+      setDraft(result)
+      setStep('review')
+    } catch (err) {
+      setAiError(
+        err instanceof AINotConfiguredError
+          ? 'AI 功能需要設定 Supabase 和 NVIDIA API。請參考 README 完成設定。'
+          : err instanceof Error ? err.message : 'AI 服務暫時無法使用'
+      )
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  async function handleApprove() {
+    if (!draft) return
+    setAiError('')
+    try {
+      const questions: Omit<QuizQuestion, 'id' | 'quizId' | 'createdAt'>[] = draft.questions.map((q) => ({
+        type: q.type,
+        prompt: q.prompt,
+        options: q.options,
+        answer: q.answer,
+        explanation: q.explanation,
+        difficulty: q.difficulty,
+        topicIds: [],
+        sourceStatus: 'ai_suggested' as const,
+      }))
+      await createQuiz.mutateAsync({
+        courseId,
+        title: `AI 生成測驗 — ${new Date().toLocaleDateString('zh-TW')}`,
+        difficulty,
+        questions,
+      })
+      setStep('done')
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : '儲存失敗')
+    }
+  }
+
+  return (
+    <Dialog open={open} onClose={handleClose} title="✨ AI 出題">
+      {step === 'config' && (
+        <div className="space-y-4">
+          <p className="text-sm text-[var(--muted)]">
+            AI 會根據課程資料生成測驗題目，你審核後才會儲存。題目標記為「AI 建議」。
+          </p>
+          <Input
+            label="主題（選填，逗號分隔）"
+            placeholder="例：微分、積分、極限"
+            value={topics}
+            onChange={(e) => setTopics(e.target.value)}
+            hint="留空則根據課程名稱出題"
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              label="難度"
+              value={difficulty}
+              onChange={(e) => setDifficulty(e.target.value as typeof difficulty)}
+            >
+              <option value="easy">簡單</option>
+              <option value="medium">中等</option>
+              <option value="hard">困難</option>
+            </Select>
+            <Input
+              label="題目數量"
+              type="number"
+              min="1"
+              max="20"
+              value={questionCount}
+              onChange={(e) => setQuestionCount(e.target.value)}
+            />
+          </div>
+          <Textarea
+            label="貼入筆記內容（選填）"
+            placeholder="把課程筆記貼在這裡，AI 會根據內容出題…"
+            value={noteContent}
+            onChange={(e) => setNoteContent(e.target.value)}
+            className="min-h-[80px]"
+            hint="最多 3000 字，AI 不會虛構筆記以外的事實"
+          />
+          {aiError && <p role="alert" className="text-sm text-[var(--danger)]">{aiError}</p>}
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={handleClose} fullWidth>取消</Button>
+            <Button fullWidth loading={generating} onClick={() => void handleGenerate()}>
+              生成題目
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {step === 'review' && draft && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <MochiAvatar mood="studying" size="sm" animate={false} />
+            <p className="text-sm font-medium">共生成 {draft.questions.length} 題，請確認後儲存</p>
+          </div>
+          <div className="max-h-72 overflow-y-auto space-y-3 border border-[var(--border)] rounded-[var(--radius-control)] p-3">
+            {draft.questions.map((q, i) => (
+              <div key={i} className="text-sm border-b border-[var(--border)] pb-3 last:border-0 last:pb-0">
+                <p className="font-medium text-[var(--text)] mb-1">第 {i + 1} 題（{q.type === 'mcq' ? '選擇題' : q.type === 'true_false' ? '是非題' : '簡答題'}）</p>
+                <p className="text-[var(--text)]">{q.prompt}</p>
+                {q.type === 'mcq' && q.options && (
+                  <ul className="mt-1 space-y-0.5 text-xs text-[var(--muted)]">
+                    {q.options.map((opt, j) => (
+                      <li key={j} className={q.answer === ['A','B','C','D'][j] ? 'text-[var(--success)] font-medium' : ''}>
+                        {['A','B','C','D'][j]}. {opt}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {q.type === 'true_false' && (
+                  <p className="text-xs text-[var(--muted)] mt-1">答案：{q.answer}</p>
+                )}
+                {q.explanation && (
+                  <p className="text-xs text-[var(--muted)] mt-1 italic">解析：{q.explanation}</p>
+                )}
+              </div>
+            ))}
+          </div>
+          {aiError && <p role="alert" className="text-sm text-[var(--danger)]">{aiError}</p>}
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={() => setStep('config')} fullWidth>重新生成</Button>
+            <Button fullWidth loading={createQuiz.isPending} onClick={() => void handleApprove()}>
+              ✓ 確認儲存
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {step === 'done' && (
+        <div className="text-center space-y-4">
+          <MochiAvatar mood="celebrating" size="lg" className="mx-auto" />
+          <p className="font-semibold text-[var(--text)]">測驗已儲存！</p>
+          <p className="text-sm text-[var(--muted)]">AI 生成的題目已標記為「AI 建議」，請留意解析和答案的準確性。</p>
+          <Button fullWidth onClick={handleClose}>完成</Button>
+        </div>
+      )}
+    </Dialog>
   )
 }

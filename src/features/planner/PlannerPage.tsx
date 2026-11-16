@@ -10,9 +10,12 @@ import { LoadingState } from '@/components/ui/LoadingState'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { MochiAvatar } from '@/components/mascot/MochiAvatar'
 import { useAllCourses } from '@/features/courses/hooks/useCourses'
+import { useAllDeadlines } from '@/features/courses/hooks/useDeadlines'
+import { useSemesters } from '@/features/semesters/hooks/useSemesters'
 import { todayISO, toLocalDateISO } from '@/lib/date'
 import { ROUTES } from '@/lib/routes'
-import type { CourseColor, StudySession } from '@/types'
+import { isSupabaseConfigured } from '@/lib/supabase'
+import type { CourseColor, StudyPlanDraft, StudySession } from '@/types'
 import {
   useCreateSession,
   useDeleteSession,
@@ -20,6 +23,7 @@ import {
   useWeekSessions,
   type CreateSessionInput,
 } from './hooks/useStudySessions'
+import { useGeneratePlan, useApprovePlan, AINotConfiguredError } from './hooks/useGeneratePlan'
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -744,6 +748,7 @@ export function PlannerPage() {
   // Dialogs
   const [createDialogDate, setCreateDialogDate] = useState<string | null>(null)
   const [detailSession, setDetailSession] = useState<StudySession | null>(null)
+  const [aiPlanOpen, setAiPlanOpen] = useState(false)
 
   // Mochi toast
   const [showToast, setShowToast] = useState(false)
@@ -894,16 +899,22 @@ export function PlannerPage() {
         title="讀書計畫"
         description="管理你的每週學習排程"
         actions={
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" onClick={prevWeek} aria-label="上週">
-              ←
-            </Button>
-            <Button variant="secondary" size="sm" onClick={thisWeek}>
-              本週
-            </Button>
-            <Button variant="ghost" size="sm" onClick={nextWeek} aria-label="下週">
-              →
-            </Button>
+          <div className="flex items-center gap-2">
+            {isSupabaseConfigured && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setAiPlanOpen(true)}
+                title="使用 AI 生成讀書計畫草稿"
+              >
+                ✨ AI 生成計畫
+              </Button>
+            )}
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="sm" onClick={prevWeek} aria-label="上週">←</Button>
+              <Button variant="secondary" size="sm" onClick={thisWeek}>本週</Button>
+              <Button variant="ghost" size="sm" onClick={nextWeek} aria-label="下週">→</Button>
+            </div>
           </div>
         }
       />
@@ -966,6 +977,205 @@ export function PlannerPage() {
 
       {/* Mochi toast */}
       <MochiToast visible={showToast} />
+
+      {/* AI Plan Dialog */}
+      <AIPlanDialog
+        open={aiPlanOpen}
+        onClose={() => setAiPlanOpen(false)}
+      />
     </div>
+  )
+}
+
+
+// ─── AI Plan Dialog ───────────────────────────────────────────────────────────
+
+interface AIPlanDialogProps {
+  open: boolean
+  onClose: () => void
+}
+
+function AIPlanDialog({ open, onClose }: AIPlanDialogProps) {
+  const { data: semesters } = useSemesters()
+  const { data: courses } = useAllCourses()
+  const { data: allDeadlines } = useAllDeadlines()
+
+  const activeSemester = semesters?.find((s) => s.status === 'active')
+
+  const [weeklyHours, setWeeklyHours] = useState('15')
+  const [draft, setDraft] = useState<StudyPlanDraft | null>(null)
+  const [step, setStep] = useState<'config' | 'draft' | 'done'>('config')
+  const [aiError, setAiError] = useState('')
+  const [approveMsg, setApproveMsg] = useState('')
+
+  const generatePlan = useGeneratePlan()
+  const approvePlan = useApprovePlan()
+
+  function handleClose() {
+    setDraft(null)
+    setStep('config')
+    setAiError('')
+    setApproveMsg('')
+    onClose()
+  }
+
+  async function handleGenerate() {
+    if (!activeSemester || !courses?.length) return
+    setAiError('')
+    try {
+      const deadlines = (allDeadlines ?? []).map((d) => ({
+        courseId: d.courseId,
+        title: d.title,
+        dueAt: d.dueAt,
+        type: d.type,
+      }))
+      const result = await generatePlan.mutateAsync({
+        semesterId: activeSemester.id,
+        courses: (courses ?? []).map((c) => ({
+          id: c.id,
+          title: c.title,
+          difficulty: c.difficulty,
+          weeklyHours: c.weeklyHours,
+        })),
+        deadlines,
+        availableHoursPerWeek: parseFloat(weeklyHours) || 15,
+        semesterStart: activeSemester.startDate,
+        semesterEnd: activeSemester.endDate,
+      })
+      setDraft(result)
+      setStep('draft')
+    } catch (err) {
+      const isNotConfigured = err instanceof AINotConfiguredError
+      setAiError(
+        isNotConfigured
+          ? 'AI 功能需要設定 Supabase 和 NVIDIA API。請參考 README 完成設定。'
+          : err instanceof Error ? err.message : 'AI 服務暫時無法使用'
+      )
+    }
+  }
+
+  async function handleApprove() {
+    if (!draft) return
+    setAiError('')
+    try {
+      const count = await approvePlan.mutateAsync(draft)
+      setApproveMsg(`已將 ${count} 筆讀書行程加入計畫！`)
+      setStep('done')
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : '儲存失敗')
+    }
+  }
+
+  const courseMap = new Map((courses ?? []).map((c) => [c.id, c.title]))
+
+  return (
+    <Dialog open={open} onClose={handleClose} title="✨ AI 生成讀書計畫">
+      {step === 'config' && (
+        <div className="space-y-4">
+          <p className="text-sm text-[var(--muted)]">
+            AI 會根據你目前的課程、截止日和每週可用時數，生成一份讀書計畫草稿，你審核後才會儲存。
+          </p>
+          {!activeSemester && (
+            <div className="bg-[var(--yellow)] rounded-[var(--radius-control)] p-3 text-sm text-[#7A6000]">
+              ⚠️ 尚無進行中的學期，請先建立學期再生成計畫。
+            </div>
+          )}
+          {activeSemester && (
+            <div className="bg-[var(--primary-soft)] rounded-[var(--radius-control)] p-3 text-sm text-[var(--primary)]">
+              📅 學期：{activeSemester.name}（{activeSemester.startDate} ～ {activeSemester.endDate}）
+              <br />
+              📚 課程：{(courses ?? []).length} 門
+            </div>
+          )}
+          <Input
+            label="每週可讀書時數"
+            type="number"
+            min="1"
+            max="80"
+            value={weeklyHours}
+            onChange={(e) => setWeeklyHours(e.target.value)}
+            hint="AI 會根據此數字分配各科讀書時間"
+          />
+          <div className="bg-[var(--yellow)] rounded-[var(--radius-control)] p-3 text-xs text-[#7A6000]">
+            <strong>AI grounding 說明：</strong>生成的計畫標記為「AI 建議」，不會虛構課程事實或已確認的考試日期。你可以在審核時調整任何細節。
+          </div>
+          {aiError && <p role="alert" className="text-sm text-[var(--danger)]">{aiError}</p>}
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={handleClose} fullWidth>取消</Button>
+            <Button
+              fullWidth
+              loading={generatePlan.isPending}
+              onClick={() => void handleGenerate()}
+              disabled={!activeSemester || !courses?.length}
+            >
+              生成草稿
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {step === 'draft' && draft && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <MochiAvatar mood="studying" size="sm" animate={false} />
+            <p className="text-sm font-medium text-[var(--text)]">草稿已生成，請審核後再套用</p>
+          </div>
+          {draft.assumptions.length > 0 && (
+            <div className="bg-[var(--primary-soft)] rounded-[var(--radius-control)] p-3 text-sm text-[var(--primary)]">
+              <p className="font-medium mb-1">AI 假設：</p>
+              <ul className="list-disc pl-4 space-y-0.5">
+                {draft.assumptions.map((a, i) => <li key={i}>{a}</li>)}
+              </ul>
+            </div>
+          )}
+          {draft.warnings.length > 0 && (
+            <div className="bg-[var(--yellow)] rounded-[var(--radius-control)] p-3 text-sm text-[#7A6000]">
+              <p className="font-medium mb-1">注意事項：</p>
+              <ul className="list-disc pl-4 space-y-0.5">
+                {draft.warnings.map((w, i) => <li key={i}>{w}</li>)}
+              </ul>
+            </div>
+          )}
+          <div className="max-h-64 overflow-y-auto space-y-2 border border-[var(--border)] rounded-[var(--radius-control)] p-3">
+            <p className="text-xs text-[var(--muted)] mb-2">共 {draft.sessions.length} 筆行程（預覽）</p>
+            {draft.sessions.slice(0, 20).map((s) => (
+              <div key={s.clientId} className="flex items-center justify-between gap-2 text-sm py-1 border-b border-[var(--border)] last:border-0">
+                <div>
+                  <span className="font-medium text-[var(--text)]">{s.title}</span>
+                  <span className="text-[var(--muted)] ml-2 text-xs">{courseMap.get(s.courseId) ?? s.courseId}</span>
+                </div>
+                <div className="shrink-0 text-right text-xs text-[var(--muted)]">
+                  <div>{s.date}</div>
+                  <div>{s.durationMinutes} 分鐘</div>
+                </div>
+              </div>
+            ))}
+            {draft.sessions.length > 20 && (
+              <p className="text-xs text-[var(--muted)] text-center pt-1">…還有 {draft.sessions.length - 20} 筆</p>
+            )}
+          </div>
+          {aiError && <p role="alert" className="text-sm text-[var(--danger)]">{aiError}</p>}
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={() => setStep('config')} fullWidth>重新生成</Button>
+            <Button
+              fullWidth
+              loading={approvePlan.isPending}
+              onClick={() => void handleApprove()}
+            >
+              ✓ 確認套用
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {step === 'done' && (
+        <div className="space-y-4 text-center">
+          <MochiAvatar mood="celebrating" size="lg" className="mx-auto" />
+          <p className="text-base font-semibold text-[var(--text)]">{approveMsg}</p>
+          <p className="text-sm text-[var(--muted)]">行程已標記為「AI 建議」，你可以隨時調整或刪除。</p>
+          <Button fullWidth onClick={handleClose}>完成</Button>
+        </div>
+      )}
+    </Dialog>
   )
 }
