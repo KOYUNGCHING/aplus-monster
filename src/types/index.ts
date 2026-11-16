@@ -25,6 +25,9 @@ export interface Semester {
 export type CourseColor =
   | 'lavender' | 'mint' | 'peach' | 'yellow' | 'sky' | 'rose'
 
+export type CourseIcon =
+  | 'book' | 'calculator' | 'flask' | 'code' | 'language' | 'palette'
+
 export type CourseDifficulty = 'easy' | 'medium' | 'hard'
 
 export interface Course {
@@ -34,6 +37,8 @@ export interface Course {
   title: string
   code: string
   color: CourseColor
+  /** Optional for backward compatibility with records created before M1 icon support. */
+  icon?: CourseIcon
   targetGrade: string
   difficulty: CourseDifficulty
   weeklyHours: number

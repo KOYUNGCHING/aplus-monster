@@ -5,10 +5,12 @@ import { Input, Select } from '@/components/ui/Input'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { useCreateCourse } from '@/features/courses/hooks/useCourses'
 import { useCreateSemester } from '@/features/semesters/hooks/useSemesters'
+import { COURSE_ICONS, DEFAULT_COURSE_ICON } from '@/lib/courseIcons'
+import { uuid } from '@/lib/id'
 import { ROUTES } from '@/lib/routes'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { CourseColor } from '@/types'
+import type { CourseColor, CourseIcon } from '@/types'
 
 type Step = 'welcome' | 'semester' | 'courses' | 'done'
 
@@ -20,8 +22,10 @@ interface SemesterDraft {
 }
 
 interface CourseDraft {
+  clientId: string
   title: string
   color: CourseColor
+  icon: CourseIcon
 }
 
 export function OnboardingPage() {
@@ -32,10 +36,11 @@ export function OnboardingPage() {
     endDate: '',
     timezone: 'Asia/Taipei',
   })
-  const [courseDrafts, setCourseDrafts] = useState<CourseDraft[]>([
-    { title: '', color: 'lavender' },
+  const [courseDrafts, setCourseDrafts] = useState<CourseDraft[]>(() => [
+    { clientId: uuid(), title: '', color: 'lavender', icon: DEFAULT_COURSE_ICON },
   ])
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   const createSemester = useCreateSemester()
   const createCourse = useCreateCourse()
@@ -46,6 +51,7 @@ export function OnboardingPage() {
 
   async function handleFinish() {
     setSaving(true)
+    setSaveError('')
     try {
       const semester = await createSemester.mutateAsync(semesterDraft)
       const validCourses = courseDrafts.filter((c) => c.title.trim())
@@ -56,6 +62,7 @@ export function OnboardingPage() {
             title: c.title,
             code: '',
             color: c.color,
+            icon: c.icon,
             targetGrade: '',
             difficulty: 'medium',
             weeklyHours: 3,
@@ -63,6 +70,8 @@ export function OnboardingPage() {
         })
       }
       setStep('done')
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : '無法儲存設定，請再試一次。')
     } finally {
       setSaving(false)
     }
@@ -112,6 +121,7 @@ export function OnboardingPage() {
           onNext={handleFinish}
           onBack={() => setStep('semester')}
           saving={saving}
+          saveError={saveError}
         />
       )}
       {step === 'done' && (
@@ -222,16 +232,21 @@ function CoursesStep({
   onNext,
   onBack,
   saving,
+  saveError,
 }: {
   drafts: CourseDraft[]
   onChange: (d: CourseDraft[]) => void
   onNext: () => void
   onBack: () => void
   saving: boolean
+  saveError: string
 }) {
   function addCourse() {
     const nextColor = COLOR_OPTIONS[drafts.length % COLOR_OPTIONS.length].value
-    onChange([...drafts, { title: '', color: nextColor }])
+    onChange([
+      ...drafts,
+      { clientId: uuid(), title: '', color: nextColor, icon: DEFAULT_COURSE_ICON },
+    ])
   }
 
   function removeCourse(i: number) {
@@ -244,7 +259,7 @@ function CoursesStep({
       <p className="text-sm text-[var(--muted)]">輸入課程名稱，之後可以在學期管理頁面繼續補充。</p>
       <div className="space-y-3">
         {drafts.map((course, i) => (
-          <div key={i} className="flex items-center gap-2">
+          <div key={course.clientId} className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
             {/* Color dot */}
             <div className="flex gap-1 shrink-0">
               {COLOR_OPTIONS.map((c) => (
@@ -262,6 +277,20 @@ function CoursesStep({
                 />
               ))}
             </div>
+            <select
+              aria-label={`課程 ${i + 1} 圖示`}
+              value={course.icon}
+              onChange={(event) => {
+                const updated = [...drafts]
+                updated[i] = { ...updated[i], icon: event.target.value as CourseIcon }
+                onChange(updated)
+              }}
+              className="h-10 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] px-2 text-sm text-[var(--text)]"
+            >
+              {Object.entries(COURSE_ICONS).map(([value, option]) => (
+                <option key={value} value={value}>{option.emoji} {option.label}</option>
+              ))}
+            </select>
             <Input
               placeholder={`課程 ${i + 1}，例：微積分`}
               value={course.title}
@@ -285,6 +314,11 @@ function CoursesStep({
           </div>
         ))}
       </div>
+      {saveError && (
+        <p role="alert" className="rounded-[var(--radius-control)] bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">
+          {saveError}
+        </p>
+      )}
       <Button variant="ghost" size="sm" onClick={addCourse}>＋ 再加一門課</Button>
       <div className="flex gap-3 pt-2">
         <Button variant="outline" onClick={onBack} disabled={saving}>← 上一步</Button>

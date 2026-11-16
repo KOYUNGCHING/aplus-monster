@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/Button'
 import { Input, Select } from '@/components/ui/Input'
 import { COURSE_COLORS } from '@/lib/courseColors'
-import type { Course, CourseColor } from '@/types'
+import { COURSE_ICONS, DEFAULT_COURSE_ICON } from '@/lib/courseIcons'
+import type { Course, CourseColor, CourseIcon } from '@/types'
 import { useState } from 'react'
 import { courseFormSchema, type CourseFormValues } from '../schemas'
 
@@ -13,12 +14,14 @@ interface CourseFormProps {
 }
 
 const COLOR_OPTIONS: CourseColor[] = ['lavender', 'mint', 'peach', 'yellow', 'sky', 'rose']
+const ICON_OPTIONS = Object.keys(COURSE_ICONS) as CourseIcon[]
 
 export function CourseForm({ initial, onSubmit, onCancel, submitLabel = '儲存' }: CourseFormProps) {
   const [form, setForm] = useState<CourseFormValues>({
     title: initial?.title ?? '',
     code: initial?.code ?? '',
     color: initial?.color ?? 'lavender',
+    icon: initial?.icon ?? DEFAULT_COURSE_ICON,
     targetGrade: initial?.targetGrade ?? '',
     difficulty: initial?.difficulty ?? 'medium',
     weeklyHours: initial?.weeklyHours ?? 3,
@@ -94,6 +97,33 @@ export function CourseForm({ initial, onSubmit, onCancel, submitLabel = '儲存'
           })}
         </div>
       </div>
+
+      {/* Icon picker */}
+      <fieldset className="flex flex-col gap-1.5">
+        <legend className="text-sm font-medium text-[var(--text)]">課程圖示</legend>
+        <div className="flex flex-wrap gap-2">
+          {ICON_OPTIONS.map((icon) => {
+            const option = COURSE_ICONS[icon]
+            const selected = form.icon === icon
+            return (
+              <button
+                key={icon}
+                type="button"
+                onClick={() => setForm({ ...form, icon })}
+                aria-label={option.label}
+                aria-pressed={selected}
+                className={`flex h-10 w-10 items-center justify-center rounded-[var(--radius-control)] border text-lg transition-colors ${
+                  selected
+                    ? 'border-[var(--primary)] bg-[var(--primary-soft)]'
+                    : 'border-[var(--border)] bg-[var(--surface)] hover:border-[var(--primary)]'
+                }`}
+              >
+                <span aria-hidden="true">{option.emoji}</span>
+              </button>
+            )
+          })}
+        </div>
+      </fieldset>
 
       <div className="grid grid-cols-2 gap-3">
         <Select

@@ -7,12 +7,14 @@ import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { COURSE_COLORS, DIFFICULTY_LABEL } from '@/lib/courseColors'
+import { getCourseIcon } from '@/lib/courseIcons'
 import { formatDate } from '@/lib/date'
 import { ROUTES } from '@/lib/routes'
+import type { Deadline } from '@/types'
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CourseForm } from './components/CourseForm'
-import { useCourse, useUpdateCourse } from './hooks/useCourses'
+import { useArchiveCourse, useCourse, useUpdateCourse } from './hooks/useCourses'
 import type { CourseFormValues } from './schemas'
 import { useDeadlines, useCreateDeadline, useDeleteDeadline } from './hooks/useDeadlines'
 import { DeadlineForm } from './components/DeadlineForm'
@@ -23,17 +25,31 @@ export function CoursePage() {
   const { courseId } = useParams<{ courseId: string }>()
   const { data: course, isLoading, isError } = useCourse(courseId ?? '')
   const updateCourse = useUpdateCourse()
+  const archiveCourse = useArchiveCourse()
+  const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('overview')
   const [editOpen, setEditOpen] = useState(false)
+  const [actionError, setActionError] = useState('')
 
   if (isLoading) return <LoadingState message="載入課程資料…" />
   if (isError || !course) return <ErrorState message="找不到這門課程。" />
 
   const colors = COURSE_COLORS[course.color]
+  const icon = getCourseIcon(course.icon)
 
   async function handleUpdate(values: CourseFormValues) {
     await updateCourse.mutateAsync({ id: course!.id, values })
     setEditOpen(false)
+  }
+
+  async function handleArchiveToggle() {
+    setActionError('')
+    try {
+      const updated = await archiveCourse.mutateAsync(course!.id)
+      if (updated.archivedAt) navigate(ROUTES.semesters)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : '無法更新封存狀態，請再試一次。')
+    }
   }
 
   return (
@@ -41,13 +57,29 @@ export function CoursePage() {
       {/* Header */}
       <PageHeader
         title={course.title}
-        description={course.code || undefined}
+        description={`${icon.emoji} ${course.code || icon.label}`}
         actions={
-          <Button size="sm" variant="secondary" onClick={() => setEditOpen(true)}>
-            ✏️ 編輯課程
-          </Button>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              loading={archiveCourse.isPending}
+              onClick={handleArchiveToggle}
+            >
+              {course.archivedAt ? '取消封存' : '封存課程'}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setEditOpen(true)}>
+              ✏️ 編輯課程
+            </Button>
+          </div>
         }
       />
+
+      {actionError && (
+        <p role="alert" className="rounded-[var(--radius-control)] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">
+          {actionError}
+        </p>
+      )}
 
       {/* Color badge + meta */}
       <div className="flex flex-wrap gap-2">
@@ -130,6 +162,7 @@ function CourseOverview({ courseId }: { courseId: string; semesterId: string }) 
   const createDeadline = useCreateDeadline()
   const deleteDeadline = useDeleteDeadline()
   const [deadlineOpen, setDeadlineOpen] = useState(false)
+  const [deadlineToDelete, setDeadlineToDelete] = useState<Deadline | null>(null)
 
   const upcoming = deadlines
     .filter((d) => new Date(d.dueAt) >= new Date())
@@ -165,7 +198,7 @@ function CourseOverview({ courseId }: { courseId: string; semesterId: string }) 
                     {d.confirmed ? '確認' : '未確認'}
                   </Badge>
                   <button
-                    onClick={() => deleteDeadline.mutate(d.id)}
+                    onClick={() => setDeadlineToDelete(d)}
                     aria-label="刪除截止日"
                     className="text-[var(--muted)] hover:text-[var(--danger)] transition-colors p-1"
                   >
@@ -185,6 +218,35 @@ function CourseOverview({ courseId }: { courseId: string; semesterId: string }) 
             }}
             onCancel={() => setDeadlineOpen(false)}
           />
+        </Dialog>
+        <Dialog
+          open={!!deadlineToDelete}
+          onClose={() => setDeadlineToDelete(null)}
+          title="刪除截止日期"
+          description="此動作無法還原，請確認後再刪除。"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-[var(--muted)]">
+              確定要刪除「<strong className="text-[var(--text)]">{deadlineToDelete?.title}</strong>」嗎？
+            </p>
+            <div className="flex gap-3">
+              <Button variant="outline" fullWidth onClick={() => setDeadlineToDelete(null)}>
+                取消
+              </Button>
+              <Button
+                variant="danger"
+                fullWidth
+                loading={deleteDeadline.isPending}
+                onClick={async () => {
+                  if (!deadlineToDelete) return
+                  await deleteDeadline.mutateAsync(deadlineToDelete.id)
+                  setDeadlineToDelete(null)
+                }}
+              >
+                確認刪除
+              </Button>
+            </div>
+          </div>
         </Dialog>
       </Card>
 

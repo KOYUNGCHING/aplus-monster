@@ -14,10 +14,11 @@
 | Dashboard（接真實資料） | ✅ 已實作 (Phase 2) |
 | Onboarding 精靈（真實儲存） | ✅ 已實作 (Phase 2) |
 | IndexedDB 本地持久化 | ✅ 已實作 (Phase 2) |
-| 學期 CRUD（建立、編輯、封存、刪除） | ✅ 已實作 (Phase 2) |
-| 課程 CRUD（顏色、難度、目標成績） | ✅ 已實作 (Phase 2) |
+| 學期管理（建立、編輯、封存／還原） | ✅ 已實作 (Phase 2) |
+| 課程管理（封存、顏色、圖示、難度、目標成績） | ✅ 已實作 (Phase 2) |
 | 課程頁面（tabs、截止日管理） | ✅ 已實作 (Phase 2) |
-| 截止日 CRUD | ✅ 已實作 (Phase 2) |
+| 截止日建立與確認刪除 | ✅ 已實作 (Phase 2) |
+| 本機資料 JSON 匯出 | ✅ 已實作 (Phase 2) |
 | 筆記 Markdown 編輯器 | 🚧 Phase 3 |
 | 測驗生成與作答 | 🚧 Phase 3 |
 | 錯題本 | 🚧 Phase 3 |
@@ -26,7 +27,7 @@
 | NVIDIA AI Gateway | 📋 Phase 4 |
 | AI 計畫生成與審核 | 📋 Phase 4 |
 | AI 筆記摘要、AI 測驗生成 | 📋 Phase 5 |
-| 自適應重新規劃、PDF / 匯出 | 📋 Phase 5 |
+| 自適應重新規劃、PDF 上傳／內容匯出 | 📋 Phase 5 |
 
 ## 本機開發
 
@@ -61,17 +62,17 @@ cp .env.example .env.local
 - **路由：** React Router v7
 - **狀態：** TanStack Query（Phase 2+）
 - **驗證：** Zod
-- **後端：** Supabase（Phase 3+）
-- **AI：** NVIDIA API via Edge Function（Phase 3+）
+- **後端：** Supabase（Phase 4+）
+- **AI：** NVIDIA API via Edge Function（Phase 4+）
 
 ## 目前模式
 
-**📱 本機示範模式**：目前學期、課程與截止日資料會儲存在這台裝置的瀏覽器 IndexedDB，不會同步雲端。清除瀏覽器資料可能造成資料遺失；Supabase 帳號與跨裝置同步規劃於 Phase 4。
+**📱 本機示範模式**：目前學期、課程、截止日與後續學習資料會儲存在這台裝置的瀏覽器 IndexedDB，不會同步雲端。設定頁可匯出完整 JSON 備份；Supabase 帳號與跨裝置同步規劃於 Phase 4。
 
 ## 階段交付狀態
 
 - Phase 1（M0）：已完成並通過 build / lint；包含 Vite、React、TypeScript、Tailwind、設計 Token、完整路由空殼、響應式全域 layout、共用 UI 與靜態 Mochi。
-- Phase 2（M1）：已實作本機 IndexedDB 與學期／課程 CRUD。
+- Phase 2（M1）：已實作本機 IndexedDB、JSON 匯出、學期／課程管理，以及使用真實本機資料的 Dashboard。
 - Phase 3（M2）：開發中，尚未宣告完成。
 - Phase 4–5（M3–M6）：規劃中；尚未串接 Supabase 或 NVIDIA，UI 不會把假資料呈現為真實 AI 結果。
 

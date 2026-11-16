@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { getCourseIcon } from '@/lib/courseIcons'
 import { formatDate } from '@/lib/date'
 import { ROUTES } from '@/lib/routes'
 import type { Course, Semester } from '@/types'
@@ -11,8 +12,8 @@ interface SemesterCardProps {
   courses: Course[]
   onEdit: () => void
   onArchive: () => void
-  onDelete: () => void
   onAddCourse: () => void
+  onRestoreCourse: (courseId: string) => void
 }
 
 export function SemesterCard({
@@ -20,10 +21,11 @@ export function SemesterCard({
   courses,
   onEdit,
   onArchive,
-  onDelete,
   onAddCourse,
+  onRestoreCourse,
 }: SemesterCardProps) {
   const activeCourses = courses.filter((c) => !c.archivedAt)
+  const archivedCourses = courses.filter((c) => c.archivedAt)
   const isArchived = semester.status === 'archived'
 
   return (
@@ -51,15 +53,6 @@ export function SemesterCard({
           >
             {isArchived ? '📂' : '🗂️'}
           </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={onDelete}
-            aria-label="刪除學期"
-            className="text-[var(--danger)] hover:bg-[var(--danger-soft)]"
-          >
-            🗑️
-          </Button>
         </div>
       </div>
 
@@ -75,9 +68,12 @@ export function SemesterCard({
               className="flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-control)] border border-[var(--border)] hover:border-[var(--primary)] hover:bg-[var(--primary-soft)] transition-colors group"
             >
               <div
-                className="w-3 h-3 rounded-full shrink-0"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-base"
                 style={{ backgroundColor: getCourseColorHex(course.color) }}
-              />
+                aria-hidden="true"
+              >
+                {getCourseIcon(course.icon).emoji}
+              </div>
               <span className="text-sm font-medium text-[var(--text)] group-hover:text-[var(--primary)] flex-1 truncate">
                 {course.title}
               </span>
@@ -91,6 +87,27 @@ export function SemesterCard({
           ))
         )}
       </div>
+
+      {archivedCourses.length > 0 && (
+        <details className="mb-4 rounded-[var(--radius-control)] border border-[var(--border)] px-3 py-2">
+          <summary className="cursor-pointer text-sm font-medium text-[var(--muted)]">
+            已封存課程（{archivedCourses.length}）
+          </summary>
+          <ul className="mt-2 space-y-2">
+            {archivedCourses.map((course) => (
+              <li key={course.id} className="flex items-center justify-between gap-3 text-sm">
+                <span className="min-w-0 truncate text-[var(--muted)]">
+                  <span aria-hidden="true" className="mr-2">{getCourseIcon(course.icon).emoji}</span>
+                  {course.title}
+                </span>
+                <Button size="sm" variant="ghost" onClick={() => onRestoreCourse(course.id)}>
+                  取消封存
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       {/* Add course */}
       {!isArchived && (

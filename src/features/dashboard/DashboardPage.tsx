@@ -2,6 +2,7 @@ import { MochiWidget } from '@/components/mascot/MochiWidget'
 import { Badge } from '@/components/ui/Badge'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ErrorState } from '@/components/ui/ErrorState'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/LoadingState'
@@ -9,33 +10,64 @@ import { useAllCourses } from '@/features/courses/hooks/useCourses'
 import { useAllDeadlines } from '@/features/courses/hooks/useDeadlines'
 import { useSemesters } from '@/features/semesters/hooks/useSemesters'
 import { COURSE_COLORS } from '@/lib/courseColors'
+import { getCourseIcon } from '@/lib/courseIcons'
 import { daysUntil, formatDate, todayISO } from '@/lib/date'
 import { ROUTES } from '@/lib/routes'
 import { Link } from 'react-router-dom'
 import type { CourseColor } from '@/types'
-
-const mockProgress = { xp: 240, level: 3, unlockedItems: [] }
+import { useTodayTasks } from './hooks/useTodayTasks'
 
 export function DashboardPage() {
   const today = todayISO()
   const greeting = getGreeting()
 
-  const { data: semesters, isLoading: semLoading } = useSemesters()
-  const { data: courses, isLoading: courseLoading } = useAllCourses()
-  const { data: allDeadlines, isLoading: dlLoading } = useAllDeadlines()
+  const semesterQuery = useSemesters()
+  const courseQuery = useAllCourses()
+  const deadlineQuery = useAllDeadlines()
+  const todayTaskQuery = useTodayTasks(today)
+
+  const semesters = semesterQuery.data
+  const courses = courseQuery.data
+  const allDeadlines = deadlineQuery.data
 
   const activeSemester = semesters?.find((s) => s.status === 'active')
+  const activeCourses = courses?.filter(
+    (course) => !course.archivedAt && course.semesterId === activeSemester?.id,
+  ) ?? []
+  const activeCourseIds = new Set(activeCourses.map((course) => course.id))
+  const courseById = new Map(activeCourses.map((course) => [course.id, course]))
+  const todayTasks = todayTaskQuery.data?.filter((task) => activeCourseIds.has(task.courseId)) ?? []
 
   // Upcoming deadlines (next 30 days, sorted)
   const upcomingDeadlines = allDeadlines
     ?.filter((d) => {
       const days = daysUntil(d.dueAt)
-      return days >= 0 && days <= 30
+      return activeCourseIds.has(d.courseId) && days >= 0 && days <= 30
     })
     .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime())
     .slice(0, 5) ?? []
 
-  const activeCourses = courses?.filter((c) => !c.archivedAt) ?? []
+  if (
+    semesterQuery.isError
+    || courseQuery.isError
+    || deadlineQuery.isError
+    || todayTaskQuery.isError
+  ) {
+    return (
+      <div className="mx-auto max-w-5xl">
+        <PageHeader title="儀表板" description="無法載入本機資料" />
+        <ErrorState
+          message="無法讀取瀏覽器中的本機資料，請確認瀏覽器允許 IndexedDB 後再試一次。"
+          onRetry={() => {
+            semesterQuery.refetch()
+            courseQuery.refetch()
+            deadlineQuery.refetch()
+            todayTaskQuery.refetch()
+          }}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -55,7 +87,7 @@ export function DashboardPage() {
         {/* Left column */}
         <div className="lg:col-span-2 space-y-5">
           {/* Active semester */}
-          {semLoading ? (
+          {semesterQuery.isLoading ? (
             <Skeleton className="h-16 w-full" />
           ) : activeSemester ? (
             <div className="bg-[var(--primary-soft)] border border-[var(--border)] rounded-[var(--radius-card)] px-5 py-3 flex items-center justify-between gap-4">
@@ -79,6 +111,51 @@ export function DashboardPage() {
             </div>
           )}
 
+          {/* Today's tasks */}
+          <Card>
+            <CardHeader>
+              <CardTitle>今日任務</CardTitle>
+              {!todayTaskQuery.isLoading && (
+                <Badge variant="default">{todayTasks.length} 項</Badge>
+              )}
+            </CardHeader>
+            {todayTaskQuery.isLoading ? (
+              <div className="space-y-2">
+                {[1, 2].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
+              </div>
+            ) : todayTasks.length === 0 ? (
+              <EmptyState
+                icon="✅"
+                title="今天沒有安排任務"
+                description="你可以到讀書計畫新增今天的學習任務。"
+                className="py-6"
+              />
+            ) : (
+              <ul className="space-y-2">
+                {todayTasks.map((task) => {
+                  const course = courseById.get(task.courseId)
+                  return (
+                    <li
+                      key={task.id}
+                      className="flex items-center justify-between gap-3 rounded-[var(--radius-control)] border border-[var(--border)] px-3 py-2.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-[var(--text)]">{task.title}</p>
+                        <p className="text-xs text-[var(--muted)]">
+                          {formatTaskTime(task.startsAt)} · {task.durationMinutes} 分鐘
+                          {course ? ` · ${course.title}` : ''}
+                        </p>
+                      </div>
+                      <Badge variant={task.status === 'completed' ? 'success' : 'primary'}>
+                        {task.status === 'completed' ? '已完成' : task.status === 'skipped' ? '已略過' : '待進行'}
+                      </Badge>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </Card>
+
           {/* Courses */}
           <Card>
             <CardHeader>
@@ -90,7 +167,7 @@ export function DashboardPage() {
                 </Link>
               </div>
             </CardHeader>
-            {courseLoading ? (
+            {courseQuery.isLoading ? (
               <div className="space-y-2">
                 {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
               </div>
@@ -112,9 +189,12 @@ export function DashboardPage() {
                       className="flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-control)] border border-[var(--border)] hover:border-[var(--primary)] hover:bg-[var(--primary-soft)] transition-colors group"
                     >
                       <div
-                        className="w-3 h-3 rounded-full shrink-0"
-                        style={{ backgroundColor: colors.border }}
-                      />
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                        style={{ backgroundColor: colors.bg }}
+                        aria-hidden="true"
+                      >
+                        {getCourseIcon(course.icon).emoji}
+                      </div>
                       <span className="text-sm font-medium text-[var(--text)] group-hover:text-[var(--primary)] flex-1">
                         {course.title}
                       </span>
@@ -139,7 +219,6 @@ export function DashboardPage() {
                 ? `加油！你有 ${activeCourses.length} 門課要顧 💪`
                 : '歡迎回來！先設定課程，Mochi 再幫你排計畫 ✨'
             }
-            progress={mockProgress}
           />
 
           {/* Upcoming deadlines */}
@@ -150,7 +229,7 @@ export function DashboardPage() {
                 <Badge variant="warning">{upcomingDeadlines.length} 項</Badge>
               )}
             </CardHeader>
-            {dlLoading ? (
+            {deadlineQuery.isLoading ? (
               <div className="space-y-2">
                 {[1, 2].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
               </div>
@@ -179,6 +258,12 @@ export function DashboardPage() {
       </div>
     </div>
   )
+}
+
+function formatTaskTime(startsAt: string) {
+  const date = new Date(startsAt)
+  if (Number.isNaN(date.getTime())) return '時間未設定'
+  return date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })
 }
 
 function getGreeting(): string {

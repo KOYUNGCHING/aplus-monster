@@ -4,7 +4,11 @@ import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
-import { useCoursesBySemester, useCreateCourse } from '@/features/courses/hooks/useCourses'
+import {
+  useArchiveCourse,
+  useCoursesBySemester,
+  useCreateCourse,
+} from '@/features/courses/hooks/useCourses'
 import { CourseForm } from '@/features/courses/components/CourseForm'
 import type { CourseFormValues } from '@/features/courses/schemas'
 import type { Semester } from '@/types'
@@ -12,7 +16,6 @@ import { useState } from 'react'
 import {
   useArchiveSemester,
   useCreateSemester,
-  useDeleteSemester,
   useSemesters,
   useUpdateSemester,
 } from './hooks/useSemesters'
@@ -23,7 +26,6 @@ import type { SemesterFormValues } from './schemas'
 type DialogMode =
   | { type: 'create-semester' }
   | { type: 'edit-semester'; semester: Semester }
-  | { type: 'delete-semester'; semester: Semester }
   | { type: 'create-course'; semesterId: string }
   | null
 
@@ -32,7 +34,6 @@ export function SemestersPage() {
   const createSemester = useCreateSemester()
   const updateSemester = useUpdateSemester()
   const archiveSemester = useArchiveSemester()
-  const deleteSemester = useDeleteSemester()
   const createCourse = useCreateCourse()
   const [dialog, setDialog] = useState<DialogMode>(null)
   const [showArchived, setShowArchived] = useState(false)
@@ -52,12 +53,6 @@ export function SemestersPage() {
   async function handleEditSemester(values: SemesterFormValues) {
     if (dialog?.type !== 'edit-semester') return
     await updateSemester.mutateAsync({ id: dialog.semester.id, values })
-    setDialog(null)
-  }
-
-  async function handleDeleteSemester() {
-    if (dialog?.type !== 'delete-semester') return
-    await deleteSemester.mutateAsync(dialog.semester.id)
     setDialog(null)
   }
 
@@ -101,7 +96,6 @@ export function SemestersPage() {
               semester={semester}
               onEdit={() => setDialog({ type: 'edit-semester', semester })}
               onArchive={() => archiveSemester.mutate(semester.id)}
-              onDelete={() => setDialog({ type: 'delete-semester', semester })}
               onAddCourse={() => setDialog({ type: 'create-course', semesterId: semester.id })}
             />
           ))}
@@ -137,35 +131,6 @@ export function SemestersPage() {
         )}
       </Dialog>
 
-      {/* Delete semester confirm dialog */}
-      <Dialog
-        open={dialog?.type === 'delete-semester'}
-        onClose={() => setDialog(null)}
-        title="刪除學期"
-        description="此動作無法還原，學期內的課程也會一併刪除。"
-      >
-        {dialog?.type === 'delete-semester' && (
-          <div className="space-y-4">
-            <p className="text-sm text-[var(--muted)]">
-              確定要刪除「<strong className="text-[var(--text)]">{dialog.semester.name}</strong>」嗎？
-            </p>
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setDialog(null)} fullWidth>
-                取消
-              </Button>
-              <Button
-                variant="danger"
-                fullWidth
-                loading={deleteSemester.isPending}
-                onClick={handleDeleteSemester}
-              >
-                確認刪除
-              </Button>
-            </div>
-          </div>
-        )}
-      </Dialog>
-
       {/* Create course dialog */}
       <Dialog
         open={dialog?.type === 'create-course'}
@@ -187,16 +152,15 @@ function SemesterCourseRow({
   semester,
   onEdit,
   onArchive,
-  onDelete,
   onAddCourse,
 }: {
   semester: Semester
   onEdit: () => void
   onArchive: () => void
-  onDelete: () => void
   onAddCourse: () => void
 }) {
   const { data: courses = [] } = useCoursesBySemester(semester.id)
+  const archiveCourse = useArchiveCourse()
 
   return (
     <SemesterCard
@@ -204,8 +168,8 @@ function SemesterCourseRow({
       courses={courses}
       onEdit={onEdit}
       onArchive={onArchive}
-      onDelete={onDelete}
       onAddCourse={onAddCourse}
+      onRestoreCourse={(courseId) => archiveCourse.mutate(courseId)}
     />
   )
 }
