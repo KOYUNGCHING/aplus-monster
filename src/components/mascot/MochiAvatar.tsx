@@ -15,11 +15,6 @@ const sizeMap = {
   xl: 160,
 }
 
-/**
- * Mochi — A+ Monster's original round study mascot.
- * SVG-drawn inline to avoid asset dependencies.
- * Mood variants control expression; reduced-motion respected via CSS.
- */
 export function MochiAvatar({ mood = 'default', size = 'md', className, animate = true }: MochiAvatarProps) {
   const px = sizeMap[size]
 
@@ -52,135 +47,194 @@ function moodLabel(mood: MochiMood): string {
 }
 
 function MochiSVG({ mood, size }: { mood: MochiMood; size: number }) {
-  // Eye and mouth shapes by mood
-  const eyes = getEyes(mood)
-  const mouth = getMouth(mood)
-
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 100 100"
+      viewBox="0 0 100 110"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
     >
-      {/* Body — round soft lavender */}
-      <ellipse cx="50" cy="54" rx="38" ry="36" fill="#C4BAF5" />
-      {/* Belly highlight */}
-      <ellipse cx="50" cy="60" rx="22" ry="18" fill="#DDD8FC" opacity="0.7" />
+      {/* ── 小手（左）── */}
+      <ellipse cx="16" cy="72" rx="7" ry="5" fill="#B0A4F0" transform="rotate(-20 16 72)" />
+      {/* 爪子 */}
+      <line x1="11" y1="68" x2="9"  y2="64" stroke="#9080D0" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="15" y1="66" x2="14" y2="62" stroke="#9080D0" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="19" y1="67" x2="19" y2="63" stroke="#9080D0" strokeWidth="1.5" strokeLinecap="round" />
 
-      {/* Left ear/horn */}
-      <ellipse cx="28" cy="22" rx="8" ry="11" fill="#B0A4F0" transform="rotate(-15 28 22)" />
-      <ellipse cx="28" cy="22" rx="4.5" ry="6.5" fill="#E8E0FF" transform="rotate(-15 28 22)" />
+      {/* ── 小手（右）── */}
+      <ellipse cx="84" cy="72" rx="7" ry="5" fill="#B0A4F0" transform="rotate(20 84 72)" />
+      <line x1="89" y1="68" x2="91" y2="64" stroke="#9080D0" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="85" y1="66" x2="86" y2="62" stroke="#9080D0" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="81" y1="67" x2="81" y2="63" stroke="#9080D0" strokeWidth="1.5" strokeLinecap="round" />
 
-      {/* Right ear/horn */}
-      <ellipse cx="72" cy="22" rx="8" ry="11" fill="#B0A4F0" transform="rotate(15 72 22)" />
-      <ellipse cx="72" cy="22" rx="4.5" ry="6.5" fill="#E8E0FF" transform="rotate(15 72 22)" />
+      {/* ── 身體（怪獸不規則輪廓）── */}
+      {/*  用 path 畫出稍微有稜角的怪獸身形，底部有小腳 */}
+      <path
+        d="
+          M50 18
+          C32 18 16 30 14 50
+          C12 66 18 82 26 90
+          C30 94 36 96 42 97
+          L44 104 L50 100 L56 104 L58 97
+          C64 96 70 94 74 90
+          C82 82 88 66 86 50
+          C84 30 68 18 50 18
+          Z
+        "
+        fill="#C4BAF5"
+      />
+      {/* 肚皮亮色 */}
+      <ellipse cx="50" cy="68" rx="20" ry="22" fill="#DDD8FC" opacity="0.75" />
 
-      {/* Glasses frame */}
-      <circle cx="38" cy="46" r="10" stroke="#8B7BE8" strokeWidth="2.5" fill="white" fillOpacity="0.85" />
-      <circle cx="62" cy="46" r="10" stroke="#8B7BE8" strokeWidth="2.5" fill="white" fillOpacity="0.85" />
-      {/* Glasses bridge */}
-      <path d="M48 46 Q50 44 52 46" stroke="#8B7BE8" strokeWidth="2" fill="none" strokeLinecap="round" />
-      {/* Glasses arm left */}
-      <path d="M28 44 Q24 43 22 44" stroke="#8B7BE8" strokeWidth="2" fill="none" strokeLinecap="round" />
-      {/* Glasses arm right */}
-      <path d="M72 44 Q76 43 78 44" stroke="#8B7BE8" strokeWidth="2" fill="none" strokeLinecap="round" />
+      {/* ── 左角（尖角）── */}
+      <polygon points="30,22 24,4 38,16" fill="#A090E8" />
+      <polygon points="31,21 25,6 37,17" fill="#C4BAF5" />
 
-      {/* Eyes */}
-      {eyes}
+      {/* ── 右角（尖角）── */}
+      <polygon points="70,22 76,4 62,16" fill="#A090E8" />
+      <polygon points="69,21 75,6 63,17" fill="#C4BAF5" />
 
-      {/* Mouth */}
-      {mouth}
+      {/* ── 小耳朵（怪獸側耳，三角形）── */}
+      <polygon points="22,38 14,28 20,46" fill="#B8ACF2" />
+      <polygon points="78,38 86,28 80,46" fill="#B8ACF2" />
 
-      {/* Cheek blush left */}
-      <ellipse cx="28" cy="56" rx="6" ry="4" fill="#FFB3C6" opacity="0.5" />
-      {/* Cheek blush right */}
-      <ellipse cx="72" cy="56" rx="6" ry="4" fill="#FFB3C6" opacity="0.5" />
+      {/* ── 眼鏡（方形框，更學術感）── */}
+      <rect x="27" y="40" width="20" height="16" rx="5" fill="white" fillOpacity="0.88" stroke="#8B7BE8" strokeWidth="2.2" />
+      <rect x="53" y="40" width="20" height="16" rx="5" fill="white" fillOpacity="0.88" stroke="#8B7BE8" strokeWidth="2.2" />
+      {/* 眼鏡橋 */}
+      <path d="M47 48 Q50 46 53 48" stroke="#8B7BE8" strokeWidth="2" fill="none" strokeLinecap="round" />
+      {/* 眼鏡腳 */}
+      <path d="M27 48 Q22 47 20 48" stroke="#8B7BE8" strokeWidth="2" fill="none" strokeLinecap="round" />
+      <path d="M73 48 Q78 47 80 48" stroke="#8B7BE8" strokeWidth="2" fill="none" strokeLinecap="round" />
 
-      {/* Book prop for studying mood */}
+      {/* ── 眼睛 ── */}
+      <Eyes mood={mood} />
+
+      {/* ── 嘴巴 + 小尖牙 ── */}
+      <Mouth mood={mood} />
+
+      {/* ── 腮紅 ── */}
+      <ellipse cx="24" cy="60" rx="6" ry="4" fill="#FFB3C6" opacity="0.45" />
+      <ellipse cx="76" cy="60" rx="6" ry="4" fill="#FFB3C6" opacity="0.45" />
+
+      {/* ── 道具：書（讀書模式）── */}
       {mood === 'studying' && (
         <g>
-          <rect x="30" y="74" width="40" height="18" rx="3" fill="#FFE9A6" stroke="#D4B800" strokeWidth="1.5" />
-          <line x1="50" y1="74" x2="50" y2="92" stroke="#D4B800" strokeWidth="1.5" />
-          <line x1="36" y1="80" x2="46" y2="80" stroke="#D4B800" strokeWidth="1" />
-          <line x1="36" y1="84" x2="44" y2="84" stroke="#D4B800" strokeWidth="1" />
-          <line x1="54" y1="80" x2="64" y2="80" stroke="#D4B800" strokeWidth="1" />
-          <line x1="54" y1="84" x2="62" y2="84" stroke="#D4B800" strokeWidth="1" />
+          <rect x="32" y="78" width="36" height="20" rx="3" fill="#FFE9A6" stroke="#D4A500" strokeWidth="1.5" />
+          <line x1="50" y1="78" x2="50" y2="98" stroke="#D4A500" strokeWidth="1.5" />
+          <line x1="36" y1="84" x2="46" y2="84" stroke="#D4A500" strokeWidth="1" />
+          <line x1="36" y1="89" x2="45" y2="89" stroke="#D4A500" strokeWidth="1" />
+          <line x1="54" y1="84" x2="64" y2="84" stroke="#D4A500" strokeWidth="1" />
+          <line x1="54" y1="89" x2="63" y2="89" stroke="#D4A500" strokeWidth="1" />
         </g>
       )}
 
-      {/* Stars for celebrating */}
+      {/* ── 慶祝：彩帶 ── */}
       {mood === 'celebrating' && (
         <>
-          <text x="12" y="20" fontSize="12" aria-hidden="true">⭐</text>
-          <text x="76" y="18" fontSize="10" aria-hidden="true">✨</text>
-          <text x="80" y="40" fontSize="8" aria-hidden="true">🌟</text>
+          <circle cx="18" cy="20" r="3" fill="#FFD6C8" />
+          <circle cx="82" cy="18" r="2.5" fill="#BCEBD8" />
+          <circle cx="88" cy="36" r="2" fill="#FFE9A6" />
+          <circle cx="12" cy="38" r="2" fill="#C4BAF5" />
+          <path d="M14 14 Q18 10 22 14" stroke="#FFD6C8" strokeWidth="2" fill="none" strokeLinecap="round" />
+          <path d="M78 12 Q82 8 86 12" stroke="#BCEBD8" strokeWidth="2" fill="none" strokeLinecap="round" />
         </>
       )}
 
-      {/* Zzz for resting */}
+      {/* ── 休息：Zzz ── */}
       {mood === 'resting' && (
-        <text x="68" y="30" fontSize="14" fill="#8B7BE8" fontWeight="bold" aria-hidden="true">z</text>
+        <g fill="#A090E8" fontWeight="bold">
+          <text x="72" y="30" fontSize="10" aria-hidden="true">z</text>
+          <text x="78" y="22" fontSize="8"  aria-hidden="true">z</text>
+          <text x="83" y="15" fontSize="6"  aria-hidden="true">z</text>
+        </g>
       )}
     </svg>
   )
 }
 
-function getEyes(mood: MochiMood): React.ReactNode {
+function Eyes({ mood }: { mood: MochiMood }) {
   switch (mood) {
     case 'happy':
     case 'celebrating':
-      // Happy arc eyes (^_^)
+      // ^o^ 弧線眼
       return (
         <>
-          <path d="M32 46 Q38 40 44 46" stroke="#29283A" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-          <path d="M56 46 Q62 40 68 46" stroke="#29283A" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          <path d="M30 49 Q37 42 44 49" stroke="#29283A" strokeWidth="2.8" fill="none" strokeLinecap="round" />
+          <path d="M56 49 Q63 42 70 49" stroke="#29283A" strokeWidth="2.8" fill="none" strokeLinecap="round" />
         </>
       )
     case 'resting':
-      // Closed sleepy lines
+      // 閉眼線
       return (
         <>
-          <path d="M33 46 Q38 48 43 46" stroke="#29283A" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-          <path d="M57 46 Q62 48 67 46" stroke="#29283A" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          <path d="M30 48 Q37 51 44 48" stroke="#29283A" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          <path d="M56 48 Q63 51 70 48" stroke="#29283A" strokeWidth="2.5" fill="none" strokeLinecap="round" />
         </>
       )
     case 'thinking':
-      // One eye bigger, slight squint
       return (
         <>
-          <circle cx="38" cy="46" r="4" fill="#29283A" />
-          <circle cx="40" cy="44" r="1.2" fill="white" />
-          <path d="M57 44 Q62 48 67 44" stroke="#29283A" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          {/* 左眼大圓 */}
+          <ellipse cx="37" cy="48" rx="5" ry="5.5" fill="#29283A" />
+          <circle cx="39" cy="46" r="1.5" fill="white" />
+          {/* 右眼細瞇 */}
+          <path d="M56 46 Q63 50 70 46" stroke="#29283A" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          {/* 眉毛（思考感） */}
+          <path d="M56 42 Q63 39 70 42" stroke="#29283A" strokeWidth="1.8" fill="none" strokeLinecap="round" />
         </>
       )
     default:
-      // Default round eyes
+      // 標準大圓眼，怪獸感
       return (
         <>
-          <circle cx="38" cy="46" r="4.5" fill="#29283A" />
-          <circle cx="40" cy="44" r="1.5" fill="white" />
-          <circle cx="62" cy="46" r="4.5" fill="#29283A" />
-          <circle cx="64" cy="44" r="1.5" fill="white" />
+          <ellipse cx="37" cy="48" rx="5.5" ry="6" fill="#29283A" />
+          <circle cx="39.5" cy="45.5" r="1.8" fill="white" />
+          <ellipse cx="63" cy="48" rx="5.5" ry="6" fill="#29283A" />
+          <circle cx="65.5" cy="45.5" r="1.8" fill="white" />
         </>
       )
   }
 }
 
-function getMouth(mood: MochiMood): React.ReactNode {
+function Mouth({ mood }: { mood: MochiMood }) {
   switch (mood) {
     case 'happy':
     case 'celebrating':
-      return <path d="M42 60 Q50 68 58 60" stroke="#29283A" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      return (
+        <>
+          <path d="M40 64 Q50 73 60 64" stroke="#29283A" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          {/* 小尖牙 */}
+          <polygon points="47,65 50,71 53,65" fill="white" stroke="#29283A" strokeWidth="1" strokeLinejoin="round" />
+        </>
+      )
     case 'resting':
-      return <path d="M44 62 Q50 62 56 62" stroke="#29283A" strokeWidth="2" fill="none" strokeLinecap="round" />
+      return (
+        <path d="M43 66 Q50 66 57 66" stroke="#29283A" strokeWidth="2" fill="none" strokeLinecap="round" />
+      )
     case 'thinking':
-      return <path d="M43 63 Q50 60 57 63" stroke="#29283A" strokeWidth="2" fill="none" strokeLinecap="round" />
+      return (
+        <>
+          <path d="M42 66 Q50 62 58 66" stroke="#29283A" strokeWidth="2" fill="none" strokeLinecap="round" />
+          <polygon points="47,66 50,70 53,66" fill="white" stroke="#29283A" strokeWidth="1" strokeLinejoin="round" />
+        </>
+      )
     case 'studying':
-      return <path d="M44 61 Q50 65 56 61" stroke="#29283A" strokeWidth="2" fill="none" strokeLinecap="round" />
+      return (
+        <>
+          <path d="M42 65 Q50 70 58 65" stroke="#29283A" strokeWidth="2" fill="none" strokeLinecap="round" />
+          <polygon points="48,66 50,70 52,66" fill="white" stroke="#29283A" strokeWidth="1" strokeLinejoin="round" />
+        </>
+      )
     default:
-      return <path d="M43 62 Q50 67 57 62" stroke="#29283A" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      return (
+        <>
+          <path d="M41 65 Q50 72 59 65" stroke="#29283A" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          {/* 招牌小尖牙 */}
+          <polygon points="47,66 50,72 53,66" fill="white" stroke="#29283A" strokeWidth="1" strokeLinejoin="round" />
+        </>
+      )
   }
 }
