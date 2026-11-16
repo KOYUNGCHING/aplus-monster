@@ -3,15 +3,70 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input, Select } from '@/components/ui/Input'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { useCreateCourse } from '@/features/courses/hooks/useCourses'
+import { useCreateSemester } from '@/features/semesters/hooks/useSemesters'
 import { ROUTES } from '@/lib/routes'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import type { CourseColor } from '@/types'
 
-type Step = 'welcome' | 'semester' | 'courses' | 'availability' | 'done'
+type Step = 'welcome' | 'semester' | 'courses' | 'done'
+
+interface SemesterDraft {
+  name: string
+  startDate: string
+  endDate: string
+  timezone: string
+}
+
+interface CourseDraft {
+  title: string
+  color: CourseColor
+}
 
 export function OnboardingPage() {
   const [step, setStep] = useState<Step>('welcome')
+  const [semesterDraft, setSemesterDraft] = useState<SemesterDraft>({
+    name: '',
+    startDate: '',
+    endDate: '',
+    timezone: 'Asia/Taipei',
+  })
+  const [courseDrafts, setCourseDrafts] = useState<CourseDraft[]>([
+    { title: '', color: 'lavender' },
+  ])
+  const [saving, setSaving] = useState(false)
+
+  const createSemester = useCreateSemester()
+  const createCourse = useCreateCourse()
   const navigate = useNavigate()
+
+  const steps: Step[] = ['welcome', 'semester', 'courses', 'done']
+  const stepIndex = steps.indexOf(step)
+
+  async function handleFinish() {
+    setSaving(true)
+    try {
+      const semester = await createSemester.mutateAsync(semesterDraft)
+      const validCourses = courseDrafts.filter((c) => c.title.trim())
+      for (const c of validCourses) {
+        await createCourse.mutateAsync({
+          semesterId: semester.id,
+          values: {
+            title: c.title,
+            code: '',
+            color: c.color,
+            targetGrade: '',
+            difficulty: 'medium',
+            weeklyHours: 3,
+          },
+        })
+      }
+      setStep('done')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -19,30 +74,49 @@ export function OnboardingPage() {
 
       {/* Step indicator */}
       <div className="flex items-center gap-2 mb-8">
-        {(['welcome', 'semester', 'courses', 'availability', 'done'] as Step[]).map((s, i) => (
+        {steps.map((s, i) => (
           <div key={s} className="flex items-center gap-2">
             <div
               className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
                 step === s
                   ? 'bg-[var(--primary)] text-white'
-                  : ['welcome', 'semester', 'courses', 'availability', 'done'].indexOf(s) <
-                    ['welcome', 'semester', 'courses', 'availability', 'done'].indexOf(step)
+                  : i < stepIndex
                   ? 'bg-[var(--mint)] text-[#2A7A5A]'
                   : 'bg-[var(--border)] text-[var(--muted)]'
               }`}
             >
-              {i + 1}
+              {i < stepIndex ? '✓' : i + 1}
             </div>
-            {i < 4 && <div className="flex-1 h-0.5 bg-[var(--border)] w-6" />}
+            {i < steps.length - 1 && (
+              <div className={`h-0.5 w-8 transition-colors ${i < stepIndex ? 'bg-[var(--mint)]' : 'bg-[var(--border)]'}`} />
+            )}
           </div>
         ))}
       </div>
 
-      {step === 'welcome' && <WelcomeStep onNext={() => setStep('semester')} />}
-      {step === 'semester' && <SemesterStep onNext={() => setStep('courses')} onBack={() => setStep('welcome')} />}
-      {step === 'courses' && <CoursesStep onNext={() => setStep('availability')} onBack={() => setStep('semester')} />}
-      {step === 'availability' && <AvailabilityStep onNext={() => setStep('done')} onBack={() => setStep('courses')} />}
-      {step === 'done' && <DoneStep onFinish={() => navigate(ROUTES.app)} />}
+      {step === 'welcome' && (
+        <WelcomeStep onNext={() => setStep('semester')} />
+      )}
+      {step === 'semester' && (
+        <SemesterStep
+          draft={semesterDraft}
+          onChange={setSemesterDraft}
+          onNext={() => setStep('courses')}
+          onBack={() => setStep('welcome')}
+        />
+      )}
+      {step === 'courses' && (
+        <CoursesStep
+          drafts={courseDrafts}
+          onChange={setCourseDrafts}
+          onNext={handleFinish}
+          onBack={() => setStep('semester')}
+          saving={saving}
+        />
+      )}
+      {step === 'done' && (
+        <DoneStep onFinish={() => navigate(ROUTES.app)} />
+      )}
     </div>
   )
 }
@@ -62,16 +136,26 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
   )
 }
 
-function SemesterStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
-  const [form, setForm] = useState({ name: '', startDate: '', endDate: '', timezone: 'Asia/Taipei' })
-  const [errors, setErrors] = useState<Record<string, string>>({})
+function SemesterStep({
+  draft,
+  onChange,
+  onNext,
+  onBack,
+}: {
+  draft: SemesterDraft
+  onChange: (d: SemesterDraft) => void
+  onNext: () => void
+  onBack: () => void
+}) {
+  const [errors, setErrors] = useState<Partial<Record<keyof SemesterDraft, string>>>({})
 
   function validate() {
-    const e: Record<string, string> = {}
-    if (!form.name.trim()) e.name = '請輸入學期名稱'
-    if (!form.startDate) e.startDate = '請選擇開始日期'
-    if (!form.endDate) e.endDate = '請選擇結束日期'
-    if (form.startDate && form.endDate && form.startDate >= form.endDate) e.endDate = '結束日期必須晚於開始日期'
+    const e: typeof errors = {}
+    if (!draft.name.trim()) e.name = '請輸入學期名稱'
+    if (!draft.startDate) e.startDate = '請選擇開始日期'
+    if (!draft.endDate) e.endDate = '請選擇結束日期'
+    if (draft.startDate && draft.endDate && draft.startDate >= draft.endDate)
+      e.endDate = '結束日期必須晚於開始日期'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -83,30 +167,32 @@ function SemesterStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
         label="學期名稱"
         placeholder="例：2025 上學期"
         required
-        value={form.name}
-        onChange={(e) => setForm({ ...form, name: e.target.value })}
+        value={draft.name}
+        onChange={(e) => onChange({ ...draft, name: e.target.value })}
         error={errors.name}
       />
-      <Input
-        label="開始日期"
-        type="date"
-        required
-        value={form.startDate}
-        onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-        error={errors.startDate}
-      />
-      <Input
-        label="結束日期"
-        type="date"
-        required
-        value={form.endDate}
-        onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-        error={errors.endDate}
-      />
+      <div className="grid grid-cols-2 gap-3">
+        <Input
+          label="開始日期"
+          type="date"
+          required
+          value={draft.startDate}
+          onChange={(e) => onChange({ ...draft, startDate: e.target.value })}
+          error={errors.startDate}
+        />
+        <Input
+          label="結束日期"
+          type="date"
+          required
+          value={draft.endDate}
+          onChange={(e) => onChange({ ...draft, endDate: e.target.value })}
+          error={errors.endDate}
+        />
+      </div>
       <Select
         label="時區"
-        value={form.timezone}
-        onChange={(e) => setForm({ ...form, timezone: (e as React.ChangeEvent<HTMLSelectElement>).target.value })}
+        value={draft.timezone}
+        onChange={(e) => onChange({ ...draft, timezone: (e as React.ChangeEvent<HTMLSelectElement>).target.value })}
       >
         <option value="Asia/Taipei">台灣 (UTC+8)</option>
         <option value="Asia/Tokyo">日本 (UTC+9)</option>
@@ -115,57 +201,94 @@ function SemesterStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
       </Select>
       <div className="flex gap-3 pt-2">
         <Button variant="outline" onClick={onBack}>← 上一步</Button>
-        <Button
-          fullWidth
-          onClick={() => {
-            if (validate()) onNext()
-          }}
-        >
-          下一步 →
-        </Button>
+        <Button fullWidth onClick={() => { if (validate()) onNext() }}>下一步 →</Button>
       </div>
     </Card>
   )
 }
 
-function CoursesStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
+const COLOR_OPTIONS: { value: CourseColor; label: string; hex: string }[] = [
+  { value: 'lavender', label: '薰衣草', hex: '#C4BAF5' },
+  { value: 'mint', label: '薄荷', hex: '#BCEBD8' },
+  { value: 'peach', label: '蜜桃', hex: '#FFD6C8' },
+  { value: 'yellow', label: '陽光', hex: '#FFE9A6' },
+  { value: 'sky', label: '天藍', hex: '#B3D9FF' },
+  { value: 'rose', label: '玫瑰', hex: '#FFBDCA' },
+]
+
+function CoursesStep({
+  drafts,
+  onChange,
+  onNext,
+  onBack,
+  saving,
+}: {
+  drafts: CourseDraft[]
+  onChange: (d: CourseDraft[]) => void
+  onNext: () => void
+  onBack: () => void
+  saving: boolean
+}) {
+  function addCourse() {
+    const nextColor = COLOR_OPTIONS[drafts.length % COLOR_OPTIONS.length].value
+    onChange([...drafts, { title: '', color: nextColor }])
+  }
+
+  function removeCourse(i: number) {
+    onChange(drafts.filter((_, idx) => idx !== i))
+  }
+
   return (
     <Card className="space-y-5">
       <h2 className="text-lg font-bold text-[var(--text)]">新增課程</h2>
-      <p className="text-sm text-[var(--muted)]">
-        課程管理在「學期」頁面完整提供，這裡先跳過，之後隨時可以新增。
-      </p>
-      <div className="bg-[var(--primary-soft)] rounded-[var(--radius-control)] p-4 text-sm text-[var(--primary)]">
-        💡 建議：進入儀表板後，到「學期」頁面新增課程，並設定課綱、考試日期。
+      <p className="text-sm text-[var(--muted)]">輸入課程名稱，之後可以在學期管理頁面繼續補充。</p>
+      <div className="space-y-3">
+        {drafts.map((course, i) => (
+          <div key={i} className="flex items-center gap-2">
+            {/* Color dot */}
+            <div className="flex gap-1 shrink-0">
+              {COLOR_OPTIONS.map((c) => (
+                <button
+                  key={c.value}
+                  type="button"
+                  onClick={() => {
+                    const updated = [...drafts]
+                    updated[i] = { ...updated[i], color: c.value }
+                    onChange(updated)
+                  }}
+                  aria-label={c.label}
+                  className={`w-5 h-5 rounded-full border-2 transition-all ${course.color === c.value ? 'border-[var(--text)] scale-110' : 'border-transparent'}`}
+                  style={{ backgroundColor: c.hex }}
+                />
+              ))}
+            </div>
+            <Input
+              placeholder={`課程 ${i + 1}，例：微積分`}
+              value={course.title}
+              onChange={(e) => {
+                const updated = [...drafts]
+                updated[i] = { ...updated[i], title: e.target.value }
+                onChange(updated)
+              }}
+              className="flex-1"
+            />
+            {drafts.length > 1 && (
+              <button
+                type="button"
+                onClick={() => removeCourse(i)}
+                aria-label="移除課程"
+                className="text-[var(--muted)] hover:text-[var(--danger)] transition-colors p-1"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        ))}
       </div>
+      <Button variant="ghost" size="sm" onClick={addCourse}>＋ 再加一門課</Button>
       <div className="flex gap-3 pt-2">
-        <Button variant="outline" onClick={onBack}>← 上一步</Button>
-        <Button fullWidth onClick={onNext}>下一步 →</Button>
-      </div>
-    </Card>
-  )
-}
-
-function AvailabilityStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
-  const [weeklyHours, setWeeklyHours] = useState('15')
-
-  return (
-    <Card className="space-y-5">
-      <h2 className="text-lg font-bold text-[var(--text)]">每週可用時數</h2>
-      <p className="text-sm text-[var(--muted)]">AI 會用這個數字規劃讀書進度，你之後還可以調整。</p>
-      <Input
-        label="每週可讀書時數（小時）"
-        type="number"
-        min="1"
-        max="80"
-        required
-        value={weeklyHours}
-        onChange={(e) => setWeeklyHours(e.target.value)}
-        hint="包含上課時間以外的自習時間"
-      />
-      <div className="flex gap-3 pt-2">
-        <Button variant="outline" onClick={onBack}>← 上一步</Button>
-        <Button fullWidth onClick={onNext}>完成設定 →</Button>
+        <Button variant="outline" onClick={onBack} disabled={saving}>← 上一步</Button>
+        <Button fullWidth onClick={onNext} loading={saving}>完成設定 →</Button>
       </div>
     </Card>
   )
@@ -178,7 +301,7 @@ function DoneStep({ onFinish }: { onFinish: () => void }) {
       <div>
         <h2 className="text-xl font-bold text-[var(--text)] mb-2">設定完成！🎉</h2>
         <p className="text-[var(--muted)]">
-          Mochi 已經記下你的設定。接下來到儀表板新增課程，就能開始規劃讀書計畫了！
+          Mochi 已記下你的學期和課程。接下來到儀表板查看，或繼續在學期管理頁面補充課程細節！
         </p>
       </div>
       <Button onClick={onFinish} fullWidth>進入儀表板 →</Button>

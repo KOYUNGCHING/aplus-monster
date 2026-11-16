@@ -11,14 +11,17 @@
 | 共用 UI 元件（Button、Card、Badge 等） | ✅ 已實作 (Phase 1) |
 | Mochi 吉祥物元件（SVG、多表情） | ✅ 已實作 (Phase 1) |
 | Landing 頁面 | ✅ 已實作 (Phase 1) |
-| Dashboard（框架） | ✅ 已實作 (Phase 1) |
-| Onboarding 精靈（UI 流程） | ✅ 已實作 (Phase 1) |
-| 學期 & 課程 CRUD | 🚧 Phase 2 |
-| 筆記 Markdown 編輯器 | 🚧 Phase 2 |
-| 測驗生成與作答 | 🚧 Phase 2 |
-| 錯題本 | 🚧 Phase 2 |
-| 讀書計畫行事曆 | 🚧 Phase 2 |
-| IndexedDB 本地持久化 | 🚧 Phase 2 |
+| Dashboard（接真實資料） | ✅ 已實作 (Phase 2) |
+| Onboarding 精靈（真實儲存） | ✅ 已實作 (Phase 2) |
+| IndexedDB 本地持久化 | ✅ 已實作 (Phase 2) |
+| 學期 CRUD（建立、編輯、封存、刪除） | ✅ 已實作 (Phase 2) |
+| 課程 CRUD（顏色、難度、目標成績） | ✅ 已實作 (Phase 2) |
+| 課程頁面（tabs、截止日管理） | ✅ 已實作 (Phase 2) |
+| 截止日 CRUD | ✅ 已實作 (Phase 2) |
+| 筆記 Markdown 編輯器 | 🚧 Phase 3 |
+| 測驗生成與作答 | 🚧 Phase 3 |
+| 錯題本 | 🚧 Phase 3 |
+| 讀書計畫行事曆 | 🚧 Phase 3 |
 | Supabase Auth & 雲端同步 | 📋 Phase 3 |
 | NVIDIA AI Gateway | 📋 Phase 3 |
 | AI 計畫生成 | 📋 Phase 3 |
