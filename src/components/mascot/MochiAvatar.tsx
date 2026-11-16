@@ -15,7 +15,7 @@ const sizeMap = {
   xl: 160,
 }
 
-export function MochiAvatar({ mood = 'default', size = 'md', className, animate = true }: MochiAvatarProps) {
+export function MochiAvatar({ mood = 'default', size = 'md', className, animate = false }: MochiAvatarProps) {
   const px = sizeMap[size]
 
   return (

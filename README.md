@@ -22,12 +22,11 @@
 | 測驗生成與作答 | 🚧 Phase 3 |
 | 錯題本 | 🚧 Phase 3 |
 | 讀書計畫行事曆 | 🚧 Phase 3 |
-| Supabase Auth & 雲端同步 | 📋 Phase 3 |
-| NVIDIA AI Gateway | 📋 Phase 3 |
-| AI 計畫生成 | 📋 Phase 3 |
-| AI 筆記摘要 | 📋 Phase 4 |
-| AI 測驗生成 | 📋 Phase 4 |
-| 自適應重新規劃 | 📋 Phase 5 |
+| Supabase Auth & 雲端同步 | 📋 Phase 4 |
+| NVIDIA AI Gateway | 📋 Phase 4 |
+| AI 計畫生成與審核 | 📋 Phase 4 |
+| AI 筆記摘要、AI 測驗生成 | 📋 Phase 5 |
+| 自適應重新規劃、PDF / 匯出 | 📋 Phase 5 |
 
 ## 本機開發
 
@@ -67,7 +66,14 @@ cp .env.example .env.local
 
 ## 目前模式
 
-**📱 本機示範模式**：Phase 1 為純前端骨架，資料尚未持久化（Phase 2 加入 IndexedDB），雲端帳號同步於 Phase 3 完成。
+**📱 本機示範模式**：目前學期、課程與截止日資料會儲存在這台裝置的瀏覽器 IndexedDB，不會同步雲端。清除瀏覽器資料可能造成資料遺失；Supabase 帳號與跨裝置同步規劃於 Phase 4。
+
+## 階段交付狀態
+
+- Phase 1（M0）：已完成並通過 build / lint；包含 Vite、React、TypeScript、Tailwind、設計 Token、完整路由空殼、響應式全域 layout、共用 UI 與靜態 Mochi。
+- Phase 2（M1）：已實作本機 IndexedDB 與學期／課程 CRUD。
+- Phase 3（M2）：開發中，尚未宣告完成。
+- Phase 4–5（M3–M6）：規劃中；尚未串接 Supabase 或 NVIDIA，UI 不會把假資料呈現為真實 AI 結果。
 
 ## 目錄結構
 

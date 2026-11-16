@@ -44,6 +44,12 @@
 }
 
 /* Base styles */
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
 }
@@ -55,6 +61,13 @@ body {
   margin: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
 
 /* Reduced motion */

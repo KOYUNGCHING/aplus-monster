@@ -5,7 +5,7 @@ import { Outlet } from 'react-router-dom'
 
 export function AppLayout() {
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--bg)]">
+    <div className="flex h-dvh overflow-hidden bg-[var(--bg)]">
       {/* Desktop sidebar */}
       <Sidebar />
 
@@ -16,7 +16,7 @@ export function AppLayout() {
         {/* Page content */}
         <main
           id="main-content"
-          className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 md:pb-6"
+          className="flex-1 overflow-y-auto p-4 pb-20 md:p-6"
           tabIndex={-1}
         >
           <Outlet />

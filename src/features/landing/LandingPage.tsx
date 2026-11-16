@@ -27,7 +27,7 @@ export function LandingPage() {
       </header>
 
       {/* Hero */}
-      <main className="flex-1">
+      <main id="main-content" className="flex-1">
         <section className="flex flex-col items-center justify-center gap-8 px-6 py-16 md:py-24 text-center">
           <div className="relative">
             <div className="absolute inset-0 bg-[var(--primary-soft)] rounded-full blur-3xl opacity-40 scale-150" aria-hidden="true" />

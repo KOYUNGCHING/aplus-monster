@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 
 export function NotFoundPage() {
   return (
-    <div className="min-h-screen bg-[var(--bg)] flex flex-col items-center justify-center gap-6 px-4 text-center">
+    <main id="main-content" className="min-h-dvh bg-[var(--bg)] flex flex-col items-center justify-center gap-6 px-4 text-center">
       <MochiAvatar mood="thinking" size="lg" />
       <div>
         <h1 className="text-5xl font-bold text-[var(--primary)] mb-2">404</h1>
@@ -15,6 +15,6 @@ export function NotFoundPage() {
       <Link to={ROUTES.app}>
         <Button>回到儀表板</Button>
       </Link>
-    </div>
+    </main>
   )
 }

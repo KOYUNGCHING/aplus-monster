@@ -1,5 +1,11 @@
 import { cn } from '@/lib/cn'
-import { type InputHTMLAttributes, type TextareaHTMLAttributes, forwardRef } from 'react'
+import {
+  type InputHTMLAttributes,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
+  forwardRef,
+  useId,
+} from 'react'
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string
@@ -11,7 +17,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   { label, error, hint, className, id, ...props },
   ref,
 ) {
-  const inputId = id ?? (label ? label.replace(/\s+/g, '-').toLowerCase() : undefined)
+  const generatedId = useId()
+  const inputId = id ?? generatedId
 
   return (
     <div className="flex flex-col gap-1">
@@ -59,7 +66,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
   { label, error, hint, className, id, ...props },
   ref,
 ) {
-  const inputId = id ?? (label ? label.replace(/\s+/g, '-').toLowerCase() : undefined)
+  const generatedId = useId()
+  const inputId = id ?? generatedId
 
   return (
     <div className="flex flex-col gap-1">
@@ -97,7 +105,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
   )
 })
 
-interface SelectProps extends InputHTMLAttributes<HTMLSelectElement> {
+interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string
   error?: string
   children: React.ReactNode
@@ -107,7 +115,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
   { label, error, className, id, children, ...props },
   ref,
 ) {
-  const inputId = id ?? (label ? label.replace(/\s+/g, '-').toLowerCase() : undefined)
+  const generatedId = useId()
+  const inputId = id ?? generatedId
 
   return (
     <div className="flex flex-col gap-1">
@@ -121,6 +130,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         ref={ref}
         id={inputId}
         aria-invalid={!!error}
+        aria-describedby={error ? `${inputId}-error` : undefined}
         className={cn(
           'w-full px-3 py-2 text-sm rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] transition-colors duration-150',
           'focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent',
@@ -133,7 +143,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         {children}
       </select>
       {error && (
-        <p role="alert" className="text-xs text-[var(--danger)]">
+        <p id={`${inputId}-error`} role="alert" className="text-xs text-[var(--danger)]">
           {error}
         </p>
       )}

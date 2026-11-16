@@ -11,7 +11,9 @@ build/
 # Environment — NEVER commit real secrets
 .env
 .env.local
+.env.*
 .env.*.local
+!.env.example
 
 # Logs
 *.log
@@ -31,6 +33,7 @@ pnpm-debug.log*
 
 # TypeScript
 *.tsbuildinfo
+.vite/
 
 # Test
 coverage/
