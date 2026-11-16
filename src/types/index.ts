@@ -149,6 +149,8 @@ export type QuestionType = 'mcq' | 'true_false' | 'short_answer'
 export interface QuizQuestion {
   id: string
   quizId: string
+  /** Optional for questions created before ordered quiz support. */
+  orderIndex?: number
   type: QuestionType
   prompt: string
   options?: string[]        // MCQ only

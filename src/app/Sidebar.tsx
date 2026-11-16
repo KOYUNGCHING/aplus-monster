@@ -1,5 +1,7 @@
 import { cn } from '@/lib/cn'
 import { ROUTES } from '@/lib/routes'
+import { useAuthContext } from '@/features/auth/AuthContext'
+import { isSupabaseConfigured } from '@/lib/supabase'
 import { NavLink } from 'react-router-dom'
 
 interface NavItem {
@@ -80,6 +82,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ className }: SidebarProps) {
+  const { user, mode } = useAuthContext()
   return (
     <aside
       className={cn(
@@ -118,11 +121,20 @@ export function Sidebar({ className }: SidebarProps) {
         ))}
       </nav>
 
-      {/* Demo mode banner */}
-      <div className="p-3 mx-3 mb-3 bg-[var(--yellow)] rounded-[var(--radius-control)] text-xs text-[#7A6000]">
-        <p className="font-semibold mb-0.5">📱 本機示範模式</p>
-        <p>資料存於瀏覽器，不會同步雲端。</p>
-      </div>
+      {/* Auth / Demo mode banner */}
+      {mode === 'cloud' && user ? (
+        <div className="p-3 mx-3 mb-3 bg-[var(--primary-soft)] rounded-[var(--radius-control)] text-xs text-[var(--primary)]">
+          <p className="font-semibold mb-0.5">☁️ {user.displayName ?? user.email ?? '已登入'}</p>
+          <p>資料已同步雲端。</p>
+        </div>
+      ) : (
+        <div className="p-3 mx-3 mb-3 bg-[var(--yellow)] rounded-[var(--radius-control)] text-xs text-[#7A6000]">
+          <p className="font-semibold mb-0.5">📱 本機示範模式</p>
+          <p>資料存於瀏覽器。
+            {isSupabaseConfigured && <NavLink to={ROUTES.login} className="underline ml-1">登入</NavLink>}
+          </p>
+        </div>
+      )}
     </aside>
   )
 }

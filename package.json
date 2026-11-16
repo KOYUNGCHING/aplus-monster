@@ -1,7 +1,7 @@
 {
   "name": "aplus-monster",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.119.0",
     "@tanstack/react-query": "^5.107.1",
     "idb": "^8.0.4",
     "react": "^19.3.1",

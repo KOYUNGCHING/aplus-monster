@@ -4,6 +4,7 @@ import { ROUTES } from '@/lib/routes'
 
 // Pages
 import { LandingPage } from '@/features/landing/LandingPage'
+import { LoginPage } from '@/features/auth/LoginPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { OnboardingPage } from '@/features/onboarding/OnboardingPage'
 import { SemestersPage } from '@/features/semesters/SemestersPage'
@@ -22,6 +23,10 @@ const router = createBrowserRouter([
   {
     path: ROUTES.landing,
     element: <LandingPage />,
+  },
+  {
+    path: '/login',
+    element: <LoginPage />,
   },
   {
     path: '/app',
